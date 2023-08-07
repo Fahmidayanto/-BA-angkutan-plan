@@ -1,0 +1,482 @@
+-- dbo.STG_Angkutan_Plan_v source
+
+CREATE view dbo.STG_angkutan_plan_v as
+SELECT	table_source,
+		id,
+		jenis,
+		tipe,
+		plantype,
+		id_tls,
+		tls_name,
+		desc_id,
+		desc_label,
+		tahun,
+		bulan,
+		tanggal,
+		product_id,
+		product_name,
+		product_id_mm,
+		product_type_id,
+		product_type_name,
+		tonase,
+		row_number()
+		over(partition by table_source,
+	id,
+	jenis,
+	tipe,
+	plantype,
+	id_tls,
+	tls_name,
+	desc_id,
+	desc_label,
+	tahun,
+	bulan,
+	tanggal,
+	product_id,
+	product_name,
+	product_id_mm,
+	product_type_id,
+	product_type_name,
+	tonase
+	order by tanggal)seq,
+	Updated_Date
+FROM
+	dbo.STG_Angkutan_Plan;
+
+ --------------------------------------------------------------------------------------------------------------------------------  
+   CREATE VIEW dwh.FACT_Angkutan_Plan_v AS
+   SELECT 
+   			table_source ,
+   			id ,
+   			jenis ,
+   			plantype ,
+   			id_tls ,
+   			tls_name ,
+   			desc_id ,
+   			tahun ,
+   			bulan ,
+   			tanggal,
+   			product_id ,
+   			product_id_mm ,
+   			product_type_id ,
+   			product_type_name ,
+   			tonase 
+   FROM Tes.dbo.STG_Angkutan_Plan sap 
+   
+ SELECT * INTO dwh.FACT_Angkutan_Plan FROM dwh.FACT_Angkutan_Plan_v
+--------------------------------------------------------------------------------------------------------------------------------
+-- dwh.dim_angkutan_plan_product_v source
+
+CREATE VIEW dwh.DIM_Angkutan_Plan_Product_v
+AS
+SELECT
+	product_id,
+	product_name,
+	'stg.stg_angkutan_plan_v' [Table Source],
+	'Product_id'[Column Source],
+	max(Updated_Date)Updated_Date
+FROM
+	Tes.dbo.STG_Angkutan_Plan
+
+SELECT * INTO dwh.DIM_Angkutan_Plan_Product FROM dwh.DIM_Angkutan_Plan_Product_v
+-------------------------------------------------------------------------------------------------------------------------------
+
+-- dwh.DIM_Prodcution_District_v source
+
+CREATE VIEW dwh.DIM_Angkutan_Plan_District_v AS
+SELECT
+	DISTINCT (desc_id)as District_Id,
+	(desc_label)District_Name,
+	'dbo.STG_Angkutan_Plan_v' [Table Source],
+	'desc_id' [Column Source],
+	Max(Updated_Date)Updated_Date
+FROM
+	dbo.STG_Angkutan_Plan_v
+GROUP BY
+	desc_id,
+	desc_label 
+
+SELECT * INTO dwh.DIM_Angkutan_Plan_product FROM dwh.DIM_Angkutan_Plan_product_v
+-----------------------------------------------------------------------------------------------------------------------------
+	
+-- dwh.dim_angkutan_plan_product_type_v source
+
+CREATE VIEW dwh.DIM_Angkutan_Plan_Product_Type_v AS
+SELECT
+		product_type_id,
+		product_type_name,
+		'stg_angkutan_plan_v'[Table Source],
+		'product_type_id' [Column Source],
+		MAX(Updated_Date)Updated_Date  
+FROM dbo.STG_Angkutan_Plan sap 
+
+SELECT * INTO dwh.DIM_Angkutan_Plan_product_Type FROM dwh.DIM_Angkutan_Plan_product_Type_v
+
+-----------------------------------------------------------------------------------------------------------------------------
+SELECT
+	table_source,
+	id,
+	jenis,
+	plantype,
+	id_tls,
+	tls_name,
+	desc_id,
+	tahun,
+	bulan,
+	product_id,
+	product_id_mm,
+	product_type_id,
+	product_type_name,
+	tonase
+FROM
+	Tes.dwh.FACT_Angkutan_Plan_v;
+
+------------------------------------------------------------------------------------------------------------------------------
+
+WITH AngkutanCTE AS
+(
+SELECT 
+	table_source,
+	id,
+	jenis,
+	tipe,
+	plantype,
+	id_tls,
+	tls_name,
+	desc_id,
+	tanggal,
+	product_id,
+	product_id_mm,
+	product_type_id,
+	product_type_name,
+	tonase,
+	seq,
+	Updated_Date
+from
+	dbo.STG_Angkutan_Plan_v 
+)
+MERGE  
+ dwh.FACT_Angkutan_Plan AS target
+	USING angkutanCTE AS source  
+ON
+(COALESCE(target.table_source,'0') = COALESCE(source.table_source,'0')
+	and COALESCE(target.id,0) = COALESCE(source.id,0)
+	and COALESCE(target.jenis,'0') = COALESCE(source.jenis,'0')
+	and COALESCE(target.tipe,'0') = COALESCE(source.tipe,'0')
+	and COALESCE(target.plantype,'0') = COALESCE(source.plantype,'0')
+	and COALESCE(target.id_tls,0) = COALESCE(source.id_tls,0)
+	and COALESCE(target.tls_name,'0') = COALESCE(source.tls_name,'0')
+	and COALESCE(target.desc_id,0) = COALESCE(source.desc_id,0)
+	and COALESCE(target.tanggal,'1900-01-01') = COALESCE(source.tanggal,'1900-01-01')
+	and COALESCE(target.product_id,0) = COALESCE(source.product_id,0)
+	and COALESCE(target.product_id_mm,'0') = COALESCE(source.product_id_mm,'0')
+	and COALESCE(target.product_type_id,0) = COALESCE(source.product_type_id,0)
+	and COALESCE(target.product_type_name,'0') = COALESCE(source.product_type_name,'0')
+	and COALESCE(target.Tonase,0) = COALESCE(source.Tonase,0)
+	and COALESCE(target.seq,0) = COALESCE(source.seq,0))
+WHEN MATCHED THEN     
+    UPDATE
+SET
+	target.Updated_Date = source.Updated_Date
+WHEN NOT MATCHED THEN
+    INSERT
+	(
+	table_source,
+	id,
+	jenis,
+	tipe,
+	plantype,
+	id_tls,
+	tls_name,
+	desc_id,
+	tanggal,
+	product_id,
+	product_id_mm,
+	product_type_id,
+	product_type_name,
+	tonase,
+	seq,
+	Updated_Date
+	)
+VALUES 
+(Source.table_source,
+Source.id,
+Source.jenis,
+source.tipe,
+Source.plantype,
+Source.id_tls,
+Source.tls_name,
+Source.desc_id,
+Source.tanggal,
+Source.product_id,
+Source.product_id_mm,
+Source.product_type_id,
+Source.product_type_name,
+Source.tonase,
+Source.seq,
+source.Updated_Date
+);
+
+
+
+-------------------------------------------------------------------------------------------------------------------
+
+WITH AngkutanDistrictCTE AS
+(
+SELECT 
+	DISTINCT 
+	desc_id,
+	desc_label,
+	'dbo.STG_Angkutan_Plan_V'[Table Source],
+	'desc_id'[Column Source],
+	MAX(Updated_Date)Updated_Date 
+from
+	dbo.STG_Angkutan_Plan_v 
+group by
+	desc_id,
+	desc_label 
+)
+MERGE  
+ dwh.DIM_Angkutan_Plan_District AS target
+	USING AngkutanDistrictCTE AS source  
+ON
+(
+	COALESCE(target.District_id,0) = COALESCE(source.desc_id,0)
+	and COALESCE(target.District_Name,'0') = COALESCE(source.desc_label,'0'))
+WHEN MATCHED THEN     
+    UPDATE
+SET
+	target.Updated_Date = source.Updated_Date
+WHEN NOT MATCHED THEN
+    INSERT
+	(
+	district_id,
+	district_name,
+	[Table Source],
+	[Column Source],
+	Updated_Date
+	)
+VALUES 
+(Source.desc_id,
+Source.desc_label,
+Source.[Table Source],
+source.[Column Source],
+source.Updated_Date
+);
+
+
+---------------------------------------------------------------------------------------------------------------------------------
+
+
+WITH AngkutanProductCTE AS
+(
+SELECT 
+	DISTINCT 
+	Product_id,
+	product_name ,
+	'dbo.STG_Angkutan_Plan_V'[Table Source],
+	'Product_id'[Column Source],
+	MAX(Updated_Date)Updated_Date 
+from
+	dbo.STG_Angkutan_Plan_v 
+group by
+	product_id,
+	Product_name 
+)
+MERGE  
+ dwh.DIM_Angkutan_Plan_Product AS target
+	USING AngkutanProductCTE AS source  
+ON
+(
+	COALESCE(target.Product_id,0) = COALESCE(source.Product_id,0)
+	and COALESCE(target.Product_Name,'0') = COALESCE(source.Product_Name,'0'))
+WHEN MATCHED THEN     
+    UPDATE
+SET
+	target.Updated_Date = source.Updated_Date
+WHEN NOT MATCHED THEN
+    INSERT
+	(
+	Product_id,
+	Product_name,
+	[Table Source],
+	[Column Source],
+	Updated_Date
+	)
+VALUES 
+(Source.Product_id,
+Source.Product_name,
+Source.[Table Source],
+source.[Column Source],
+source.Updated_Date
+);
+
+---------------------------------------------------------------------------------------------------------------------------
+
+-- dwh.DM_angkutan_plan_v source
+
+CREATE view dm.DM_angkutan_plan_v as
+with cleansing_fact as(
+select
+	*
+from
+	(select
+		   fap.*,
+			ROW_NUMBER () OVER(PARTITION BY table_source,
+											id,
+											jenis,
+											tipe,
+											plantype,
+											id_tls,
+											tls_name,
+											desc_id,
+											tanggal,
+											product_id,
+											product_id_mm,
+											product_type_id,
+											product_type_name,
+											tonase,
+											seq
+								ORDER BY
+											Updated_Date DESC) row_numb
+	from
+		dwh.FACT_Angkutan_Plan fap
+	) a
+where row_numb = 1
+						),
+cleansing_dim_production_Product as (
+select * from (select
+					  dpp.*,
+				ROW_NUMBER () OVER(PARTITION BY product_id
+					   			   ORDER BY
+									Updated_Date DESC) row_numb
+				from dwh.DIM_Angkutan_Plan_Product dpp
+			  ) a
+where row_numb = 1		
+						),
+cleansing_dim_production_District as(
+select * from (select
+					  dpd.*,
+					  ROW_NUMBER () OVER(PARTITION BY district_id
+										 ORDER BY
+													  Updated_Date DESC
+										) row_numb
+				from dwh.DIM_Angkutan_Plan_District dpd
+			  ) a
+where
+	row_numb = 1
+									),
+v_fact as(
+SELECT
+		cf.table_source,
+		cf.id,
+		cf.tanggal,
+		MONTH(cf.tanggal) bulan,
+		YEAR(cf.tanggal) tahun,
+		cf.jenis,
+		cf.tipe,
+		cf.plantype,
+		cf.id_tls,
+		cf.tls_name,
+		cf.desc_id,
+		dpd.district_name desc_label,
+		cf.product_id,
+		dpp.product_name,
+		cf.product_id_mm,
+		cf.product_type_id,
+		cf.product_type_name,
+		cf.tonase,
+		cf.seq,
+		cast(dp.last_day_of_month as date)last_day_of_month,
+		cf.Updated_Date
+FROM
+	cleansing_fact cf
+left join dwh.DIM_Period dp 
+on
+	cf.tanggal = dp.date_actual
+left join cleansing_dim_production_Product dpp  
+on
+	cf.product_id = dpp.product_id
+left join cleansing_dim_production_District dpd  
+on
+	cf.desc_id = dpd.district_id),
+v_fact2 as(
+select
+	vf.*
+from
+	dbo.STG_angkutan_plan_v sptv
+left join v_fact vf on
+COALESCE(vf.table_source,'0') = COALESCE(sptv.table_source,'0')
+	and COALESCE(vf.id,0) = COALESCE(sptv.id,0)
+	and COALESCE(vf.jenis,'0') = COALESCE(sptv.jenis,'0')
+	and COALESCE(vf.tipe,'0') = COALESCE(sptv.tipe,'0')
+	and COALESCE(vf.plantype,'0') = COALESCE(sptv.plantype,'0')
+	and COALESCE(vf.id_tls,0) = COALESCE(sptv.id_tls,0)
+	and COALESCE(vf.tls_name,'0') = COALESCE(sptv.tls_name,'0')
+	and COALESCE(vf.desc_id,0) = COALESCE(sptv.desc_id,0)
+	and COALESCE(vf.tanggal,'1900-01-01') = COALESCE(sptv.tanggal,'1900-01-01')
+	and COALESCE(vf.product_id,0) = COALESCE(sptv.product_id,0)
+	and COALESCE(vf.product_id_mm,'0') = COALESCE(sptv.product_id_mm,'0')
+	and COALESCE(vf.product_type_id,0) = COALESCE(sptv.product_type_id,0)
+	and COALESCE(vf.product_type_name,'0') = COALESCE(sptv.product_type_name,'0')
+	and COALESCE(vf.tonase,0) = COALESCE(sptv.tonase,0)
+	and COALESCE(vf.seq,0) = COALESCE(sptv.seq,0)
+),
+real_value as(
+select
+		table_source,
+		id,
+		tanggal,
+		bulan,
+		tahun,
+		jenis,
+		tipe,
+		plantype,
+		id_tls,
+		tls_name,
+		desc_id,
+		desc_label,
+		product_id,
+		product_name,
+		product_id_mm,
+		product_type_id,
+		product_type_name,
+		tonase,
+		max(tanggal) over (partition by bulan,
+										tahun 
+							order by 	tanggal desc)last_update,
+		Updated_Date
+from
+	v_fact2 where jenis = 'Real'),
+plan_value as(
+select
+		table_source,
+		id,
+		tanggal,
+		bulan,
+		tahun,
+		jenis,
+		tipe,
+		plantype,
+		id_tls,
+		tls_name,
+		desc_id,
+		desc_label,
+		product_id,
+		product_name,
+		product_id_mm,
+		product_type_id,
+		product_type_name,
+		tonase,
+		max(tanggal) over (partition by bulan,
+										tahun 
+						   order by 	tanggal desc)last_update,
+		Updated_Date
+from
+	v_fact2 where jenis = 'Plan'
+				)
+select * from real_value
+union all
+select * from plan_value;
+
+SELECT * INTO DM.DM_angkutan_plan FROM dm.DM_angkutan_plan_v dapv 
